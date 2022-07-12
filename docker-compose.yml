@@ -1,0 +1,72 @@
+version: "3.7"
+
+services:
+  app:
+    container_name: app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+    depends_on:
+      - redis
+    networks:
+      - net-app
+
+  # nginx
+  nginx:
+    container_name: nginx
+    image: nginx:alpine
+    restart: unless-stopped
+    ports: 
+      - "8000:80"
+    volumes: 
+      - ./:/var/www
+      - ./docker/nginx/:/etc/nginx/conf.d/
+    networks:  
+      - net-app     
+
+  # db_mysql
+  mysql:
+    container_name: mysql
+    image: mysql:5.7.22
+    restart: unless-stopped
+    environment: 
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_USER: ${DB_USERNAME}
+    volumes: 
+      - ./.docker/mysql/dbdata:/var/lib/mysql
+    ports: 
+      - "3306:3306"
+    networks:     
+      - net-app
+
+
+  # queue
+  queue:
+    container_name: queue
+    image: especializati/laravel9-app
+    restart: unless-stopped
+    command: "php artisan queue:work"
+    volumes: 
+        - ./:/var/www
+    depends_on: 
+      - redis
+      - app
+    networks: 
+      - net-app
+
+  # redis
+  redis:
+    container_name: redis
+    image: redis:latest
+    networks: 
+      - net-app
+
+networks: 
+  net-app:
+    driver: bridge    
